@@ -3,7 +3,11 @@ import 'package:todo_app/constants/colors.dart';
 import 'package:todo_app/model/todo.dart';
 
 class TodoItem extends StatefulWidget {
-  TodoItem({super.key, required this.todo, required this.onTap, required this.deleteTask});
+  const TodoItem(
+      {super.key,
+      required this.todo,
+      required this.onTap,
+      required this.deleteTask});
   final Todo todo;
   final Function()? onTap;
   final Function()? deleteTask;
@@ -33,7 +37,9 @@ class _TodoItemState extends State<TodoItem> {
         title: Text(
           widget.todo.todoText,
           style: TextStyle(
-            decoration: widget.todo.isDone ? TextDecoration.lineThrough : TextDecoration.none,
+            decoration: widget.todo.isDone
+                ? TextDecoration.lineThrough
+                : TextDecoration.none,
           ),
         ),
         trailing: Container(

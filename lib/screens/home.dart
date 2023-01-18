@@ -1,73 +1,96 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:todo_app/constants/colors.dart';
 import 'package:todo_app/model/todo.dart';
-
-import '../widgets/todo_item.dart';
+import 'package:todo_app/providers/todo_provider.dart';
+import 'package:todo_app/widgets/custom_app_bar.dart';
+import 'package:todo_app/widgets/todo_item.dart';
 
 class Home extends StatefulWidget {
-  Home({super.key});
-  final todoList = Todo.todoList();
-
-  final todoController = TextEditingController();
-
-  List<Todo> fitlteredTodo = [];
+  const Home({super.key});
 
   @override
   State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> {
+  late TodoProvider todoProvider;
+
+  late TextEditingController todoTextController;
 
   @override
   void initState() {
+    todoProvider = context.read<TodoProvider>();
+    todoTextController = TextEditingController();
     super.initState();
-    widget.fitlteredTodo = widget.todoList;
+  }
+
+  @override
+  void dispose() {
+    todoTextController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: tdBgColor,
-      appBar: buildAppBar(),
-      body: Stack(
+      appBar: const CustomAppBar(),
+      body: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              children: [
-                seacrhBox(),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(
-                          top: 40,
-                          bottom: 20,
-                        ),
-                        child: const Text(
-                          "All ToDo's",
-                          style: TextStyle(
-                            color: tdSecondary,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+          seacrhBox(),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Consumer<TodoProvider>(
+                        builder: (context, todoProvider, child) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(
+                                  top: 40,
+                                  bottom: 20,
+                                ),
+                                child: Text(
+                                  "All ToDo's",
+                                  style: TextStyle(
+                                    color: tdSecondary,
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              ...todoProvider.filterdTodos.map(
+                                (todo) => TodoItem(
+                                  todo: todo,
+                                  onTap: () {
+                                    todoProvider.checkIfTaskComplete(todo);
+                                  },
+                                  deleteTask: () {
+                                    todoProvider.deleteTodo(currentTodo: todo);
+                                  },
+                                ),
+                              )
+                            ],
+                          );
+                        },
                       ),
-                      for (Todo todo in widget.fitlteredTodo.reversed)
-                        TodoItem(
-                          todo: todo,
-                          onTap: () => checkIfTaskComplete(todo),
-                          deleteTask: () => deleteTask(todo.id),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
+          Container(
+            height: 75,
+            color: tdBgColor,
+            width: double.maxFinite,
             child: Row(
               children: [
                 Expanded(
@@ -78,15 +101,17 @@ class _HomeState extends State<Home> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(4),
-                      boxShadow: const [BoxShadow(
-                        offset: Offset(0,0),
-                        color: Colors.white,
-                        blurRadius: 4,
-                        spreadRadius: 0.5,
-                      )],
+                      boxShadow: const [
+                        BoxShadow(
+                          offset: Offset(0, 0),
+                          color: Colors.white,
+                          blurRadius: 4,
+                          spreadRadius: 0.5,
+                        )
+                      ],
                     ),
                     child: TextField(
-                      controller: widget.todoController,
+                      controller: todoTextController,
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "Add a todo",
@@ -97,17 +122,25 @@ class _HomeState extends State<Home> {
                 const SizedBox(width: 10),
                 Container(
                   margin: const EdgeInsets.only(bottom: 20, right: 20),
-                  child: ElevatedButton(
+                  child: TextButton(
                     onPressed: () {
-                      addTodo();
-                      } ,
-                    style: ElevatedButton.styleFrom(
+                      if (todoTextController.text.isEmpty ||
+                          todoTextController.text == "") return;
+                      Todo todo = Todo(
+                        todoText: todoTextController.text,
+                        id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      );
+                      todoProvider.addTodo(todo: todo);
+
+                      todoTextController.clear();
+                    },
+                    style: IconButton.styleFrom(
                       backgroundColor: tdSecondary,
-                      elevation: 5,
+                      fixedSize: const Size(65, 65),
                     ),
-                    child: const Text(
-                      "+",
-                      style: TextStyle(fontSize: 60),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -119,73 +152,17 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void searchFilter(String keywordEntered){
-    List<Todo> result = [];
-    if(keywordEntered.isEmpty){
-      result  = widget.fitlteredTodo;
-    }else{
-      result = widget.todoList.where((task) => task.todoText.toLowerCase().contains(keywordEntered.toLowerCase())).toList();
-    } 
-    setState(() {
-      widget.fitlteredTodo = result;
-    });
-  }
-
-  void checkIfTaskComplete(Todo todo) {
-    setState(() {
-      todo.isDone = !todo.isDone;
-    });
-  }
-
-  void deleteTask(String id) {
-    setState(() {
-      widget.todoList.removeWhere((todo) => todo.id == id);
-    });
-  }
-
-  void addTodo() {
-    setState(() {
-      widget.todoList.add(
-      Todo(
-        todoText: widget.todoController.text,
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-      ),
-    );
-   
-    });
-    widget.todoController.clear();
-  }
-
-  AppBar buildAppBar() {
-    return AppBar(
-      backgroundColor: tdBgColor,
-      elevation: 0,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Icon(
-            Icons.menu,
-            size: 30,
-          ),
-          CircleAvatar(
-            foregroundColor: Colors.white,
-            backgroundColor: Colors.white,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget seacrhBox() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(4),
       ),
       child: TextField(
         onChanged: (value) {
-          searchFilter(value);
+          todoProvider.searchFilter(value);
         },
         decoration: const InputDecoration(
           border: InputBorder.none,
